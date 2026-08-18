@@ -530,12 +530,33 @@ class TimetableCard extends HTMLElement {
     if (first) {
       const lang = h?.locale?.language || h?.language || TC_STRINGS_FALLBACK;
       tcLoadStrings(lang).then(() => {
+        // Fetch and render unconditionally: HA commonly sets hass before the
+        // element is inserted into the DOM, so isConnected may still be false
+        // here — gating this on it would leave the card empty until the user
+        // navigates weeks.
         this._fetchEvents();
-        this._setupRefresh();
-        this._clockTimer = setInterval(() => this._render(), 30_000);
         this._render();
+        // Only the timers must not be armed while detached, otherwise they leak
+        // (disconnectedCallback has already run by then). If we are not attached
+        // yet, connectedCallback() arms them on attach instead.
+        if (this.isConnected) {
+          this._setupRefresh();
+          clearInterval(this._clockTimer);
+          this._clockTimer = setInterval(() => this._render(), 30_000);
+        }
       });
     }
+  }
+
+  connectedCallback() {
+    // disconnectedCallback() clears both timers. If the same element instance is
+    // re-attached (dashboard tab switch, popup reuse, sections rebuild), the hass
+    // setter does not run again with first === true, so the timers would stay
+    // dead and the card would silently stop updating. Restart them here.
+    if (!this._hass) return;
+    clearInterval(this._clockTimer);
+    this._clockTimer = setInterval(() => this._render(), 30_000);
+    this._setupRefresh();
   }
 
   disconnectedCallback() {
