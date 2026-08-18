@@ -50,6 +50,8 @@
   "disp_loc_sub":         "Location below the title",
   "disp_notes":           "Show notes",
   "disp_notes_sub":       "Description as 3rd line",
+  "disp_autoadv":         "Auto-advance week",
+  "disp_autoadv_sub":     "Automatically show next week after the last configured weekday",
   "des_axis":             "Time axis",
   "des_left":             "Left",
   "des_right":            "Right",
