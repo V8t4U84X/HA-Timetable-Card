@@ -497,6 +497,7 @@ class TimetableCard extends HTMLElement {
     this._weekOffset   = 0;
     this._clockTimer   = null;
     this._refreshTimer = null;
+    this._retryTimer   = null;
     this._lastFetchKey = null;
     this._popup        = null;
   }
@@ -541,6 +542,7 @@ class TimetableCard extends HTMLElement {
   disconnectedCallback() {
     clearInterval(this._clockTimer);
     clearInterval(this._refreshTimer);
+    clearTimeout(this._retryTimer);
     this._closePopup();
   }
 
@@ -591,20 +593,30 @@ class TimetableCard extends HTMLElement {
     this._lastFetchKey = key;
     this._loading = true;
     this._render();
+    let failed = false;
     try {
       const results = await Promise.all(
         ents.map(e =>
           this._hass.callApi('GET',
             `calendars/${e.id}?start=${encodeURIComponent(monday.toISOString())}&end=${encodeURIComponent(end.toISOString())}`)
           .then(res => (Array.isArray(res) ? res : []).map(ev => ({ ...ev, _entityId: e.id })))
-          .catch(() => [])
+          .catch(() => { failed = true; return []; })
         )
       );
       this._events = results.flat();
       this._error  = null;
     } catch (err) {
+      failed = true;
       this._error  = err.message || String(err);
       this._events = [];
+    }
+    // A failed fetch must not stay cached as "already fetched" — otherwise the
+    // card is stuck showing "no events" for that week until the refresh interval
+    // fires or the user navigates. Clear the key and retry shortly.
+    if (failed) {
+      this._lastFetchKey = null;
+      clearTimeout(this._retryTimer);
+      this._retryTimer = setTimeout(() => this._fetchEvents(), 5_000);
     }
     this._loading = false;
     this._render();
