@@ -62,6 +62,7 @@ const TC_DEFAULT = {
   keywords: [],
   refresh_interval: 'auto',
   weekdays: [0, 1, 2, 3, 4, 5, 6],
+  show_calendar: true,
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -410,6 +411,10 @@ label.kw-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;bor
     <div><div class="rl">${t.disp_notes}</div><div class="rs">${t.disp_notes_sub}</div></div>
     <ha-switch id="sw-notes" ${c.show_notes!==false?'checked':''}></ha-switch>
   </div>
+  <div class="row">
+    <div><div class="rl">${t.disp_cal}</div><div class="rs">${t.disp_cal_sub}</div></div>
+    <ha-switch id="sw-cal" ${c.show_calendar!==false?'checked':''}></ha-switch>
+  </div>
 </div>
 
 <span class="sec">${t.sec_design}</span>
@@ -469,6 +474,7 @@ label.kw-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;bor
     s.getElementById('add-kw').addEventListener('click', () => this._addKw());
     s.getElementById('sw-loc').addEventListener('change', e => this._set('show_location', e.target.checked));
     s.getElementById('sw-notes').addEventListener('change', e => this._set('show_notes', e.target.checked));
+    s.getElementById('sw-cal').addEventListener('change', e => this._set('show_calendar', e.target.checked));
     s.getElementById('time-int').addEventListener('change', e => this._set('time_interval', e.target.value));
     s.getElementById('ref-int').addEventListener('change', e => this._set('refresh_interval', e.target.value));
     s.getElementById('ppm-in').addEventListener('change', e => this._set('px_per_min', parseFloat(e.target.value) || 1.4));
@@ -746,7 +752,8 @@ class TimetableCard extends HTMLElement {
     if (timeStr) rows += `<div class="pd-row"><div class="pd-ico">🕐</div><div class="pd-val">${timeStr}</div></div>`;
     if (loc)     rows += `<div class="pd-row"><div class="pd-ico">📍</div><div class="pd-val">${tcEsc(loc)}</div></div>`;
     if (rawDesc) rows += `<div class="pd-row"><div class="pd-ico">📝</div><div class="pd-val pd-desc">${tcEsc(rawDesc)}</div></div>`;
-    if (calId)   rows += `<div class="pd-row"><div class="pd-ico">📅</div><div class="pd-val pd-cal">${tcEsc(calId)}</div></div>`;
+    if (calId && this._config.show_calendar !== false)
+      rows += `<div class="pd-row"><div class="pd-ico">📅</div><div class="pd-val pd-cal">${tcEsc(calId)}</div></div>`;
 
     const overlay = document.createElement('div');
     overlay.className = 'tc-popup-overlay';
