@@ -50,6 +50,8 @@
   "disp_loc_sub":         "Location below the title",
   "disp_notes":           "Show notes",
   "disp_notes_sub":       "Description as 3rd line",
+  "disp_lastday":          "All-day events on last day only",
+  "disp_lastday_sub":      "Show multi-day all-day events only on their final day",
   "des_axis":             "Time axis",
   "des_left":             "Left",
   "des_right":            "Right",
