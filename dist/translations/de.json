@@ -50,6 +50,8 @@
   "disp_loc_sub":         "Ort unter dem Titel",
   "disp_notes":           "Notizen anzeigen",
   "disp_notes_sub":       "Beschreibung als 3. Zeile",
+  "disp_autoadv":         "Automatisch nächste Woche zeigen",
+  "disp_autoadv_sub":     "Zeigt automatisch die nächste Woche ab dem Tag nach dem letzten konfigurierten Wochentag",
   "des_axis":             "Zeitachse",
   "des_left":             "Links",
   "des_right":            "Rechts",
