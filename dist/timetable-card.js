@@ -62,6 +62,7 @@ const TC_DEFAULT = {
   keywords: [],
   refresh_interval: 'auto',
   weekdays: [0, 1, 2, 3, 4, 5, 6],
+  all_day_last_day_only: false,
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -403,6 +404,10 @@ label.kw-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;bor
     <div id="wd-row"></div>
   </div>
   <div class="row">
+    <div><div class="rl">${t.disp_lastday}</div><div class="rs">${t.disp_lastday_sub}</div></div>
+    <ha-switch id="sw-lastday" ${c.all_day_last_day_only?'checked':''}></ha-switch>
+  </div>
+  <div class="row">
     <div><div class="rl">${t.disp_loc}</div><div class="rs">${t.disp_loc_sub}</div></div>
     <ha-switch id="sw-loc" ${c.show_location!==false?'checked':''}></ha-switch>
   </div>
@@ -468,6 +473,7 @@ label.kw-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;bor
     const s = this.shadowRoot;
     s.getElementById('add-kw').addEventListener('click', () => this._addKw());
     s.getElementById('sw-loc').addEventListener('change', e => this._set('show_location', e.target.checked));
+    s.getElementById('sw-lastday').addEventListener('change', e => this._set('all_day_last_day_only', e.target.checked));
     s.getElementById('sw-notes').addEventListener('change', e => this._set('show_notes', e.target.checked));
     s.getElementById('time-int').addEventListener('change', e => this._set('time_interval', e.target.value));
     s.getElementById('ref-int').addEventListener('change', e => this._set('refresh_interval', e.target.value));
@@ -638,7 +644,12 @@ class TimetableCard extends HTMLElement {
     const s = new Date(ev.start.date), e = new Date(ev.end.date);
     const d0 = new Date(day); d0.setHours(0,0,0,0);
     const d1 = new Date(d0); d1.setDate(d0.getDate()+1);
-    return s < d1 && e > d0;
+    if (!(s < d1 && e > d0)) return false;
+    // Multi-day all-day events (e.g. homework spanning assignment date to due
+    // date) are only relevant on their final day. Skip every earlier day when
+    // the option is enabled; e > d1 means the event continues past this day.
+    if (this._config.all_day_last_day_only && e > d1) return false;
+    return true;
   }
 
   _applyRename(ev, kwRule) {
