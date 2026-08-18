@@ -62,6 +62,7 @@ const TC_DEFAULT = {
   keywords: [],
   refresh_interval: 'auto',
   weekdays: [0, 1, 2, 3, 4, 5, 6],
+  auto_advance_week: false,
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -403,6 +404,10 @@ label.kw-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;bor
     <div id="wd-row"></div>
   </div>
   <div class="row">
+    <div><div class="rl">${t.disp_autoadv}</div><div class="rs">${t.disp_autoadv_sub}</div></div>
+    <ha-switch id="sw-autoadv" ${c.auto_advance_week?'checked':''}></ha-switch>
+  </div>
+  <div class="row">
     <div><div class="rl">${t.disp_loc}</div><div class="rs">${t.disp_loc_sub}</div></div>
     <ha-switch id="sw-loc" ${c.show_location!==false?'checked':''}></ha-switch>
   </div>
@@ -468,6 +473,7 @@ label.kw-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;bor
     const s = this.shadowRoot;
     s.getElementById('add-kw').addEventListener('click', () => this._addKw());
     s.getElementById('sw-loc').addEventListener('change', e => this._set('show_location', e.target.checked));
+    s.getElementById('sw-autoadv').addEventListener('change', e => this._set('auto_advance_week', e.target.checked));
     s.getElementById('sw-notes').addEventListener('change', e => this._set('show_notes', e.target.checked));
     s.getElementById('time-int').addEventListener('change', e => this._set('time_interval', e.target.value));
     s.getElementById('ref-int').addEventListener('change', e => this._set('refresh_interval', e.target.value));
@@ -553,11 +559,26 @@ class TimetableCard extends HTMLElement {
 
   _getEntities() { return tcNormalizeEntities(this._config.entities || []); }
 
+  // Once the current weekday is past the last day in `weekdays`, treat next week
+  // as the default view. Only applies while no manual navigation is active, so
+  // the prev/next arrows and the Today button keep working unchanged.
+  _autoAdvanceDays() {
+    if (!this._config.auto_advance_week) return 0;
+    const sel = this._config.weekdays || TC_DAY_KEYS.map((_, i) => i);
+    if (!sel.length) return 0;
+    const lastDay  = Math.max(...sel);          // 0=Mon … 6=Sun
+    const now      = new Date();
+    const dow      = now.getDay();               // 0=Sun … 6=Sat
+    const todayIdx = dow === 0 ? 6 : dow - 1;     // → 0=Mon … 6=Sun
+    return todayIdx > lastDay ? 1 : 0;
+  }
+
   _weekRange() {
     const now = new Date();
     const monday = new Date(now);
     const dow = now.getDay();
-    monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1) + this._weekOffset * 7);
+    const offset = this._weekOffset + (this._weekOffset === 0 ? this._autoAdvanceDays() : 0);
+    monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7);
     monday.setHours(0, 0, 0, 0);
     const end = new Date(monday);
     end.setDate(monday.getDate() + 7);
