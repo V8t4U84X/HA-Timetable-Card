@@ -50,6 +50,8 @@
   "disp_loc_sub":         "Location below the title",
   "disp_notes":           "Show notes",
   "disp_notes_sub":       "Description as 3rd line",
+  "disp_cal":             "Show calendar in popup",
+  "disp_cal_sub":         "Show which calendar an event came from",
   "des_axis":             "Time axis",
   "des_left":             "Left",
   "des_right":            "Right",
