@@ -50,6 +50,8 @@
   "disp_loc_sub":         "Ort unter dem Titel",
   "disp_notes":           "Notizen anzeigen",
   "disp_notes_sub":       "Beschreibung als 3. Zeile",
+  "disp_lastday":          "Ganztägige nur am letzten Tag",
+  "disp_lastday_sub":      "Mehrtägige ganztägige Ereignisse nur an ihrem letzten Tag anzeigen",
   "des_axis":             "Zeitachse",
   "des_left":             "Links",
   "des_right":            "Rechts",
