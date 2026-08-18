@@ -26,6 +26,19 @@ window.customCards.push({
 const TC_STRINGS_CACHE = {};
 const TC_STRINGS_FALLBACK = 'en';
 
+// Synchronous, always-available safe defaults. A render can be triggered BEFORE
+// the async translation fetch resolves (e.g. setConfig() firing on a hard browser
+// refresh, before tcLoadStrings() has completed). Without these, tcS() returns {}
+// and the first render throws on t.days[i] / t.months[i].
+const TC_SAFE_DEFAULTS = {
+  days: [
+    { short: 'Mon' }, { short: 'Tue' }, { short: 'Wed' }, { short: 'Thu' },
+    { short: 'Fri' }, { short: 'Sat' }, { short: 'Sun' },
+  ],
+  days_long: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],
+  months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+};
+
 async function tcLoadStrings(lang) {
   if (TC_STRINGS_CACHE[lang]) return TC_STRINGS_CACHE[lang];
   const base = new URL(import.meta.url).pathname.replace(/\/[^/]+$/, '');
@@ -41,8 +54,12 @@ async function tcLoadStrings(lang) {
 }
 
 function tcS(hass) {
-  const lang = hass?.locale?.language || hass?.language || TC_STRINGS_FALLBACK;
-  return TC_STRINGS_CACHE[lang] || TC_STRINGS_CACHE[TC_STRINGS_FALLBACK] || {};
+  const lang   = hass?.locale?.language || hass?.language || TC_STRINGS_FALLBACK;
+  const loaded = TC_STRINGS_CACHE[lang] || TC_STRINGS_CACHE[TC_STRINGS_FALLBACK];
+  // Always merge over the safe defaults so every key the renderer indexes into
+  // (days[], days_long[], months[]) is guaranteed to exist, even on the very
+  // first render before translations have loaded.
+  return loaded ? { ...TC_SAFE_DEFAULTS, ...loaded } : TC_SAFE_DEFAULTS;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
