@@ -50,6 +50,8 @@
   "disp_loc_sub":         "Location below the title",
   "disp_notes":           "Show notes",
   "disp_notes_sub":       "Description as 3rd line",
+  "disp_nowline":          "Show current time indicator",
+  "disp_nowline_sub":      "The moving line for the current time — disabling it also stops the 30s refresh timer",
   "des_axis":             "Time axis",
   "des_left":             "Left",
   "des_right":            "Right",
