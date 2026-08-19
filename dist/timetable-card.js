@@ -498,6 +498,8 @@ class TimetableCard extends HTMLElement {
     this._clockTimer   = null;
     this._refreshTimer = null;
     this._retryTimer   = null;
+    this._lastRenderedKey = null;
+    this._lastEventsSig   = null;
     this._lastFetchKey = null;
     this._popup        = null;
   }
@@ -584,16 +586,42 @@ class TimetableCard extends HTMLElement {
     return Math.ceil(((u - y1) / 86_400_000 + 1) / 7);
   }
 
-  async _fetchEvents() {
+  // Cheap, order-independent fingerprint of the fields that actually show up
+  // on screen. Used to tell a real data change (new homework, cancelled
+  // lesson, ...) apart from "fetched the same thing again".
+  _eventsSignature(events) {
+    return events
+      .map(ev => [
+        ev._entityId,
+        ev.start?.dateTime || ev.start?.date || '',
+        ev.end?.dateTime || ev.end?.date || '',
+        ev.summary || '', ev.location || '', ev.description || '',
+      ].join('|'))
+      .sort()
+      .join('\n');
+  }
+
+  async _fetchEvents(force = false) {
     const ents = this._getEntities();
     if (!ents.length || !this._hass) return;
     const { monday, end } = this._weekRange();
     const key = `${ents.map(e=>e.id).join(',')}|${monday.toISOString()}`;
     if (this._lastFetchKey === key) return;
+    // A "new view" is a week/entity combination nothing is currently on screen
+    // for (first load, week navigation, entities changed) — or an explicit
+    // manual refresh (force), which should always give visible feedback even
+    // if the data turns out to be unchanged. A background timer refresh of
+    // the week already on screen otherwise keeps showing existing content
+    // while it fetches.
+    const isNewView = force || key !== this._lastRenderedKey;
     this._lastFetchKey = key;
-    this._loading = true;
-    this._render();
+    if (isNewView) {
+      this._loading = true;
+      this._render();
+      this._lastRenderedKey = key;
+    }
     let failed = false;
+    let newEvents = [];
     try {
       const results = await Promise.all(
         ents.map(e =>
@@ -603,23 +631,33 @@ class TimetableCard extends HTMLElement {
           .catch(() => { failed = true; return []; })
         )
       );
-      this._events = results.flat();
-      this._error  = null;
+      newEvents = results.flat();
     } catch (err) {
       failed = true;
-      this._error  = err.message || String(err);
-      this._events = [];
+      this._error = err.message || String(err);
     }
     // A failed fetch must not stay cached as "already fetched" — otherwise the
-    // card is stuck showing "no events" for that week until the refresh interval
-    // fires or the user navigates. Clear the key and retry shortly.
+    // card is stuck showing stale/no data until the refresh interval fires or
+    // the user navigates weeks. Clear the key and retry shortly.
     if (failed) {
+      this._events = [];
       this._lastFetchKey = null;
       clearTimeout(this._retryTimer);
       this._retryTimer = setTimeout(() => this._fetchEvents(), 5_000);
+      this._loading = false;
+      this._render();
+      return;
     }
+    const sig = this._eventsSignature(newEvents);
+    const dataChanged = sig !== this._lastEventsSig;
+    this._events = newEvents;
+    this._error  = null;
+    this._lastEventsSig = sig;
     this._loading = false;
-    this._render();
+    // Skip the render entirely for a silent background refresh of the
+    // already-visible week when the fetched data is byte-for-byte identical
+    // to what's already on screen — nothing changed in the source calendar.
+    if (isNewView || dataChanged) this._render();
   }
 
   _isAllDay(ev) { return !!(ev.start && ev.start.date && !ev.start.dateTime); }
@@ -1050,7 +1088,7 @@ ha-card{overflow:hidden;border-radius:var(--ha-card-border-radius,16px)}
       this._weekOffset = 0; this._lastFetchKey = null; this._fetchEvents(); this._render();
     });
     s.getElementById('ref-btn')?.addEventListener('click', () => {
-      this._lastFetchKey = null; this._fetchEvents();
+      this._lastFetchKey = null; this._fetchEvents(true);
     });
   }
 
