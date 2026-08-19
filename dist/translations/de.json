@@ -50,6 +50,8 @@
   "disp_loc_sub":         "Ort unter dem Titel",
   "disp_notes":           "Notizen anzeigen",
   "disp_notes_sub":       "Beschreibung als 3. Zeile",
+  "disp_nowline":          "Aktuelle-Zeit-Linie anzeigen",
+  "disp_nowline_sub":      "Die bewegliche Linie für die aktuelle Uhrzeit — deaktivieren stoppt auch den 30-Sekunden-Timer",
   "des_axis":             "Zeitachse",
   "des_left":             "Links",
   "des_right":            "Rechts",
