@@ -62,6 +62,7 @@ const TC_DEFAULT = {
   keywords: [],
   refresh_interval: 'auto',
   weekdays: [0, 1, 2, 3, 4, 5, 6],
+  show_now_line: true,
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -403,6 +404,10 @@ label.kw-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;bor
     <div id="wd-row"></div>
   </div>
   <div class="row">
+    <div><div class="rl">${t.disp_nowline}</div><div class="rs">${t.disp_nowline_sub}</div></div>
+    <ha-switch id="sw-nowline" ${c.show_now_line!==false?'checked':''}></ha-switch>
+  </div>
+  <div class="row">
     <div><div class="rl">${t.disp_loc}</div><div class="rs">${t.disp_loc_sub}</div></div>
     <ha-switch id="sw-loc" ${c.show_location!==false?'checked':''}></ha-switch>
   </div>
@@ -468,6 +473,7 @@ label.kw-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;bor
     const s = this.shadowRoot;
     s.getElementById('add-kw').addEventListener('click', () => this._addKw());
     s.getElementById('sw-loc').addEventListener('change', e => this._set('show_location', e.target.checked));
+    s.getElementById('sw-nowline').addEventListener('change', e => this._set('show_now_line', e.target.checked));
     s.getElementById('sw-notes').addEventListener('change', e => this._set('show_notes', e.target.checked));
     s.getElementById('time-int').addEventListener('change', e => this._set('time_interval', e.target.value));
     s.getElementById('ref-int').addEventListener('change', e => this._set('refresh_interval', e.target.value));
@@ -497,6 +503,7 @@ class TimetableCard extends HTMLElement {
     this._weekOffset   = 0;
     this._clockTimer   = null;
     this._refreshTimer = null;
+    this._lastTickSig  = null;
     this._lastFetchKey = null;
     this._popup        = null;
   }
@@ -532,10 +539,44 @@ class TimetableCard extends HTMLElement {
       tcLoadStrings(lang).then(() => {
         this._fetchEvents();
         this._setupRefresh();
-        this._clockTimer = setInterval(() => this._render(), 30_000);
+        // The clock timer exists only to move the now-line every 30s. Skip it
+        // entirely when the line is hidden, since a full re-render just to
+        // reposition an invisible element wastes CPU on a low-power kiosk.
+        if (this._config.show_now_line !== false) {
+          this._clockTimer = setInterval(() => this._tick(), 30_000);
+        }
         this._render();
       });
     }
+  }
+
+  // Called every 30s instead of _render() directly. Computes a cheap signature
+  // of everything the tick could visibly change (now-line pixel row, which
+  // events are "current", day rollover) and only triggers a full re-render
+  // when that signature actually differs from the last tick. Most 30s ticks
+  // move the line by a sub-pixel amount and change nothing else, so this
+  // avoids a full DOM rebuild for no visible effect.
+  _tick() {
+    if (!this.isConnected) return;
+    const now = new Date();
+    const timedEvs = this._events.filter(ev => !this._isAllDay(ev));
+    const bounds = this._boundaries(timedEvs);
+    const minT = bounds.length ? bounds[0] : 480;
+    const maxT = bounds.length ? bounds[bounds.length - 1] : 960;
+    const ppm = parseFloat(this._config.px_per_min) || 1.4;
+    const nowMin = this._toMin(now);
+    const isCurrentWeek = this._weekOffset === 0;
+    const lineVisible = this._config.show_now_line !== false && isCurrentWeek && nowMin >= minT && nowMin <= maxT;
+    const linePx = lineVisible ? Math.round((nowMin - minT) * ppm) : -1;
+    const currentIds = timedEvs
+      .filter(ev => this._isCurrent(ev))
+      .map(ev => `${ev._entityId}|${ev.start?.dateTime}`)
+      .sort()
+      .join(',');
+    const sig = `${now.toDateString()}|${linePx}|${currentIds}`;
+    if (sig === this._lastTickSig) return;
+    this._lastTickSig = sig;
+    this._render();
   }
 
   disconnectedCallback() {
@@ -955,7 +996,7 @@ ha-card{overflow:hidden;border-radius:var(--ha-card-border-radius,16px)}
     }).join('');
 
     const nowMin = this._toMin(now);
-    const showNow = isCurrentWeek && nowMin >= minT && nowMin <= maxT;
+    const showNow = this._config.show_now_line !== false && isCurrentWeek && nowMin >= minT && nowMin <= maxT;
     const nowTop  = (nowMin - minT) * ppm + PADDING_TOP;
 
     const dCols = days.map((day, di) => {
