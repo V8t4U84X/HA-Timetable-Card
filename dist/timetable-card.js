@@ -26,6 +26,45 @@ window.customCards.push({
 const TC_STRINGS_CACHE = {};
 const TC_STRINGS_FALLBACK = 'en';
 
+// Synchronous, always-available safe defaults. These exist so that a render
+// triggered BEFORE the async translation fetch resolves (e.g. setConfig()
+// firing on a hard browser refresh, before tcLoadStrings() has completed)
+// can never crash on a missing array/property — it just shows English text
+// for one frame until the real translations arrive and a re-render happens.
+const TC_SAFE_DEFAULTS = {
+  days: [
+    { short: 'Mon' }, { short: 'Tue' }, { short: 'Wed' }, { short: 'Thu' },
+    { short: 'Fri' }, { short: 'Sat' }, { short: 'Sun' },
+  ],
+  days_long: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],
+  months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+  card_title: 'Timetable', week_prefix: 'Week of', today_btn: 'Today',
+  prev_week: 'Previous week', next_week: 'Next week', refresh: 'Refresh',
+  all_day: 'All day', no_title: '(No title)',
+  state_loading: 'Loading…', state_no_entity: 'No calendar configured',
+  state_no_entity_hint: 'Add a calendar entity in the card settings.',
+  state_no_events: 'No events this week',
+  sec_calendar: 'Calendars', sec_keywords: 'Keywords', sec_display: 'Display',
+  sec_design: 'Design', sec_refresh: 'Refresh interval',
+  disp_weekdays: 'Weekdays shown', disp_loc: 'Show location', disp_loc_sub: 'Show the event location',
+  disp_autoadv: 'Auto-advance week', disp_autoadv_sub: 'Automatically show next week after the last configured weekday',
+  disp_cal: 'Show calendar in popup', disp_cal_sub: 'Show which calendar an event came from',
+  disp_lastday: 'All-day events on last day only', disp_lastday_sub: 'Show multi-day all-day events only on their final day',
+  disp_nowline: 'Show current time indicator', disp_nowline_sub: 'The moving line for the current time — disabling it also stops the 30s refresh timer',
+  disp_notes: 'Show notes', disp_notes_sub: 'Show the event description',
+  des_left: 'Left', des_right: 'Right', des_axis: 'Time axis position',
+  des_interval: 'Time interval', des_interval_sub: 'How rows are spaced',
+  des_interval_event: 'Event-based', des_ppm: 'Pixels per minute', des_ppm_sub: 'Row height scale',
+  ref_interval: 'Refresh interval', ref_interval_sub: 'How often to refetch events', ref_auto: 'Auto', ref_: '',
+  ent_picker_label: 'Add calendar entity', ent_color_title: 'Event color', ent_remove_title: 'Remove entity',
+  ent_hint: 'No calendars added yet.',
+  kw_add: 'Add keyword', kw_hint: 'No keywords added yet.', kw_placeholder: 'Keyword',
+  kw_exact: 'Exact match', kw_hide: 'Hidden', kw_block: 'Block', kw_border: 'Border',
+  kw_partial_btn: 'Partial rename', kw_partial_kw: 'Keyword', kw_partial_text: 'Custom text',
+  kw_partial_ph: 'Replacement text', kw_rename_btn: 'Rename', kw_rename_label: 'Rename to',
+  kw_rename_ph: 'New name',
+};
+
 async function tcLoadStrings(lang) {
   if (TC_STRINGS_CACHE[lang]) return TC_STRINGS_CACHE[lang];
   const base = new URL(import.meta.url).pathname.replace(/\/[^/]+$/, '');
@@ -41,8 +80,12 @@ async function tcLoadStrings(lang) {
 }
 
 function tcS(hass) {
-  const lang = hass?.locale?.language || hass?.language || TC_STRINGS_FALLBACK;
-  return TC_STRINGS_CACHE[lang] || TC_STRINGS_CACHE[TC_STRINGS_FALLBACK] || {};
+  const lang   = hass?.locale?.language || hass?.language || TC_STRINGS_FALLBACK;
+  const loaded = TC_STRINGS_CACHE[lang] || TC_STRINGS_CACHE[TC_STRINGS_FALLBACK];
+  // Always merge over the safe defaults so every key the renderer touches
+  // (days[], days_long[], months[], ...) is guaranteed to exist, even on the
+  // very first synchronous render before translations have loaded.
+  return loaded ? { ...TC_SAFE_DEFAULTS, ...loaded } : TC_SAFE_DEFAULTS;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -62,6 +105,10 @@ const TC_DEFAULT = {
   keywords: [],
   refresh_interval: 'auto',
   weekdays: [0, 1, 2, 3, 4, 5, 6],
+  all_day_last_day_only: false,
+  auto_advance_week: false,
+  show_calendar: true,
+  show_now_line: true,
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -403,12 +450,28 @@ label.kw-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;bor
     <div id="wd-row"></div>
   </div>
   <div class="row">
+    <div><div class="rl">${t.disp_autoadv}</div><div class="rs">${t.disp_autoadv_sub}</div></div>
+    <ha-switch id="sw-autoadv" ${c.auto_advance_week?'checked':''}></ha-switch>
+  </div>
+  <div class="row">
+    <div><div class="rl">${t.disp_lastday}</div><div class="rs">${t.disp_lastday_sub}</div></div>
+    <ha-switch id="sw-lastday" ${c.all_day_last_day_only?'checked':''}></ha-switch>
+  </div>
+  <div class="row">
+    <div><div class="rl">${t.disp_nowline}</div><div class="rs">${t.disp_nowline_sub}</div></div>
+    <ha-switch id="sw-nowline" ${c.show_now_line!==false?'checked':''}></ha-switch>
+  </div>
+  <div class="row">
     <div><div class="rl">${t.disp_loc}</div><div class="rs">${t.disp_loc_sub}</div></div>
     <ha-switch id="sw-loc" ${c.show_location!==false?'checked':''}></ha-switch>
   </div>
   <div class="row">
     <div><div class="rl">${t.disp_notes}</div><div class="rs">${t.disp_notes_sub}</div></div>
     <ha-switch id="sw-notes" ${c.show_notes!==false?'checked':''}></ha-switch>
+  </div>
+  <div class="row">
+    <div><div class="rl">${t.disp_cal}</div><div class="rs">${t.disp_cal_sub}</div></div>
+    <ha-switch id="sw-cal" ${c.show_calendar!==false?'checked':''}></ha-switch>
   </div>
 </div>
 
@@ -468,7 +531,11 @@ label.kw-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;bor
     const s = this.shadowRoot;
     s.getElementById('add-kw').addEventListener('click', () => this._addKw());
     s.getElementById('sw-loc').addEventListener('change', e => this._set('show_location', e.target.checked));
+    s.getElementById('sw-nowline').addEventListener('change', e => this._set('show_now_line', e.target.checked));
+    s.getElementById('sw-lastday').addEventListener('change', e => this._set('all_day_last_day_only', e.target.checked));
+    s.getElementById('sw-autoadv').addEventListener('change', e => this._set('auto_advance_week', e.target.checked));
     s.getElementById('sw-notes').addEventListener('change', e => this._set('show_notes', e.target.checked));
+    s.getElementById('sw-cal').addEventListener('change', e => this._set('show_calendar', e.target.checked));
     s.getElementById('time-int').addEventListener('change', e => this._set('time_interval', e.target.value));
     s.getElementById('ref-int').addEventListener('change', e => this._set('refresh_interval', e.target.value));
     s.getElementById('ppm-in').addEventListener('change', e => this._set('px_per_min', parseFloat(e.target.value) || 1.4));
@@ -497,7 +564,12 @@ class TimetableCard extends HTMLElement {
     this._weekOffset   = 0;
     this._clockTimer   = null;
     this._refreshTimer = null;
+    this._lastTickSig  = null;
+    this._retryTimer   = null;
+    this._midnightTimer = null;
     this._lastFetchKey = null;
+    this._lastRenderedKey = null;
+    this._lastEventsSig   = null;
     this._popup        = null;
   }
 
@@ -530,17 +602,96 @@ class TimetableCard extends HTMLElement {
     if (first) {
       const lang = h?.locale?.language || h?.language || TC_STRINGS_FALLBACK;
       tcLoadStrings(lang).then(() => {
+        // Fetch and render unconditionally: HA commonly sets hass before the
+        // element is inserted into the DOM, so isConnected may still be false
+        // here — gating this on it would leave the card empty until the user
+        // navigates weeks.
         this._fetchEvents();
-        this._setupRefresh();
-        this._clockTimer = setInterval(() => this._render(), 30_000);
         this._render();
+        // Timers are the only part that must not be armed while detached,
+        // otherwise they leak (disconnectedCallback has already run by then).
+        // If we're not attached yet, connectedCallback() arms them on attach.
+        if (this.isConnected) {
+          this._setupRefresh();
+          clearInterval(this._clockTimer);
+          if (this._config.show_now_line !== false) {
+            this._clockTimer = setInterval(() => this._tick(), 30_000);
+          }
+          this._scheduleMidnightRefresh();
+        }
       });
     }
+  }
+
+  connectedCallback() {
+    // disconnectedCallback() clears both timers. If the same element instance is
+    // re-attached (dashboard tab switch, popup reuse, sections rebuild), the hass
+    // setter won't run again with first === true, so the timers would stay dead
+    // and the card would silently stop updating. Restart them here.
+    if (!this._hass) return;
+    clearInterval(this._clockTimer);
+    if (this._config.show_now_line !== false) {
+      this._clockTimer = setInterval(() => this._tick(), 30_000);
+    }
+    this._setupRefresh();
+    this._scheduleMidnightRefresh();
+  }
+
+  // Day rollover must update the card (today's highlight, and the whole week
+  // grid if it was Sunday→Monday) even when show_now_line is off and no 30s
+  // tick is running at all. Rather than a recurring interval, this schedules a
+  // single setTimeout for the next local midnight — fires once a day, then
+  // reschedules itself, so it costs essentially nothing while still off.
+  _scheduleMidnightRefresh() {
+    clearTimeout(this._midnightTimer);
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
+    this._midnightTimer = setTimeout(() => {
+      if (this.isConnected) {
+        // Force: the new day's data may differ from what's cached even if the
+        // week key is unchanged (e.g. Tue -> Wed within the same week), and a
+        // week boundary (Sun -> Mon) needs a fresh fetch for the new range too.
+        this._lastFetchKey = null;
+        this._fetchEvents(true);
+      }
+      this._scheduleMidnightRefresh();
+    }, next - now);
+  }
+
+  // Called every 30s instead of _render() directly. Computes a cheap signature
+  // of everything the tick could visibly change (now-line pixel row, which
+  // events are "current", day rollover) and only triggers a full re-render
+  // when that signature actually differs from the last tick. Most 30s ticks
+  // move the line by a sub-pixel amount and change nothing else, so this
+  // avoids a full DOM rebuild for no visible effect.
+  _tick() {
+    if (!this.isConnected) return;
+    const now = new Date();
+    const timedEvs = this._events.filter(ev => !this._isAllDay(ev));
+    const bounds = this._boundaries(timedEvs);
+    const minT = bounds.length ? bounds[0] : 480;
+    const maxT = bounds.length ? bounds[bounds.length - 1] : 960;
+    const ppm = parseFloat(this._config.px_per_min) || 1.4;
+    const nowMin = this._toMin(now);
+    const isCurrentWeek = this._weekOffset === 0;
+    const lineVisible = this._config.show_now_line !== false && isCurrentWeek && nowMin >= minT && nowMin <= maxT;
+    const linePx = lineVisible ? Math.round((nowMin - minT) * ppm) : -1;
+    const currentIds = timedEvs
+      .filter(ev => this._isCurrent(ev))
+      .map(ev => `${ev._entityId}|${ev.start?.dateTime}`)
+      .sort()
+      .join(',');
+    const sig = `${now.toDateString()}|${linePx}|${currentIds}`;
+    if (sig === this._lastTickSig) return;
+    this._lastTickSig = sig;
+    this._render();
   }
 
   disconnectedCallback() {
     clearInterval(this._clockTimer);
     clearInterval(this._refreshTimer);
+    clearTimeout(this._retryTimer);
+    clearTimeout(this._midnightTimer);
     this._closePopup();
   }
 
@@ -553,11 +704,27 @@ class TimetableCard extends HTMLElement {
 
   _getEntities() { return tcNormalizeEntities(this._config.entities || []); }
 
+  // Auto-advance: once the current weekday is later than the last configured
+  // weekday, jump the "current" week to next week by default. Only applies
+  // when no manual navigation is active (_weekOffset === 0), so prev/next/
+  // Today keep working exactly as before.
+  _autoAdvanceDays() {
+    if (!this._config.auto_advance_week) return 0;
+    const sel = this._config.weekdays || TC_DAY_KEYS.map((_, i) => i);
+    if (!sel.length) return 0;
+    const lastDay  = Math.max(...sel);          // 0=Mon … 6=Sun
+    const now      = new Date();
+    const dow      = now.getDay();               // 0=Sun … 6=Sat
+    const todayIdx = dow === 0 ? 6 : dow - 1;     // → 0=Mon … 6=Sun
+    return todayIdx > lastDay ? 1 : 0;
+  }
+
   _weekRange() {
     const now = new Date();
     const monday = new Date(now);
     const dow = now.getDay();
-    monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1) + this._weekOffset * 7);
+    const offset = this._weekOffset + (this._weekOffset === 0 ? this._autoAdvanceDays() : 0);
+    monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7);
     monday.setHours(0, 0, 0, 0);
     const end = new Date(monday);
     end.setDate(monday.getDate() + 7);
@@ -582,32 +749,78 @@ class TimetableCard extends HTMLElement {
     return Math.ceil(((u - y1) / 86_400_000 + 1) / 7);
   }
 
-  async _fetchEvents() {
+  // Cheap, order-independent fingerprint of the fields that actually show up
+  // on screen. Used to tell a real data change (new homework, cancelled
+  // lesson, ...) apart from "fetched the same thing again".
+  _eventsSignature(events) {
+    return events
+      .map(ev => [
+        ev._entityId,
+        ev.start?.dateTime || ev.start?.date || '',
+        ev.end?.dateTime || ev.end?.date || '',
+        ev.summary || '', ev.location || '', ev.description || '',
+      ].join('|'))
+      .sort()
+      .join('\n');
+  }
+
+  async _fetchEvents(force = false) {
     const ents = this._getEntities();
     if (!ents.length || !this._hass) return;
     const { monday, end } = this._weekRange();
     const key = `${ents.map(e=>e.id).join(',')}|${monday.toISOString()}`;
     if (this._lastFetchKey === key) return;
+    // A "new view" is a week/entity combination nothing is currently on screen
+    // for (first load, week navigation, entities changed) — or an explicit
+    // manual refresh (force), which should always give visible feedback even
+    // if the data turns out to be unchanged. A background timer refresh of
+    // the week already on screen otherwise keeps showing existing content
+    // while it fetches.
+    const isNewView = force || key !== this._lastRenderedKey;
     this._lastFetchKey = key;
-    this._loading = true;
-    this._render();
+    if (isNewView) {
+      this._loading = true;
+      this._render();
+      this._lastRenderedKey = key;
+    }
+    let failed = false;
+    let newEvents = [];
     try {
       const results = await Promise.all(
         ents.map(e =>
           this._hass.callApi('GET',
             `calendars/${e.id}?start=${encodeURIComponent(monday.toISOString())}&end=${encodeURIComponent(end.toISOString())}`)
           .then(res => (Array.isArray(res) ? res : []).map(ev => ({ ...ev, _entityId: e.id })))
-          .catch(() => [])
+          .catch(() => { failed = true; return []; })
         )
       );
-      this._events = results.flat();
-      this._error  = null;
+      newEvents = results.flat();
     } catch (err) {
-      this._error  = err.message || String(err);
-      this._events = [];
+      failed = true;
+      this._error = err.message || String(err);
     }
+    // A failed fetch must not stay cached as "already fetched" — otherwise the
+    // card is stuck showing stale/no data until the refresh interval fires or
+    // the user navigates weeks. Clear the key and retry shortly.
+    if (failed) {
+      this._events = [];
+      this._lastFetchKey = null;
+      clearTimeout(this._retryTimer);
+      this._retryTimer = setTimeout(() => this._fetchEvents(), 5_000);
+      this._loading = false;
+      this._render();
+      return;
+    }
+    const sig = this._eventsSignature(newEvents);
+    const dataChanged = sig !== this._lastEventsSig;
+    this._events = newEvents;
+    this._error  = null;
+    this._lastEventsSig = sig;
     this._loading = false;
-    this._render();
+    // Skip the render entirely for a silent background refresh of the
+    // already-visible week when the fetched data is byte-for-byte identical
+    // to what's already on screen — nothing changed in the source calendar.
+    if (isNewView || dataChanged) this._render();
   }
 
   _isAllDay(ev) { return !!(ev.start && ev.start.date && !ev.start.dateTime); }
@@ -638,7 +851,12 @@ class TimetableCard extends HTMLElement {
     const s = new Date(ev.start.date), e = new Date(ev.end.date);
     const d0 = new Date(day); d0.setHours(0,0,0,0);
     const d1 = new Date(d0); d1.setDate(d0.getDate()+1);
-    return s < d1 && e > d0;
+    if (!(s < d1 && e > d0)) return false;
+    // Multi-day all-day events (e.g. homework spanning assignment date to due
+    // date) are only relevant on their final day. Skip every earlier day when
+    // the option is enabled; e > d1 means the event continues past this day.
+    if (this._config.all_day_last_day_only && e > d1) return false;
+    return true;
   }
 
   _applyRename(ev, kwRule) {
@@ -746,7 +964,8 @@ class TimetableCard extends HTMLElement {
     if (timeStr) rows += `<div class="pd-row"><div class="pd-ico">🕐</div><div class="pd-val">${timeStr}</div></div>`;
     if (loc)     rows += `<div class="pd-row"><div class="pd-ico">📍</div><div class="pd-val">${tcEsc(loc)}</div></div>`;
     if (rawDesc) rows += `<div class="pd-row"><div class="pd-ico">📝</div><div class="pd-val pd-desc">${tcEsc(rawDesc)}</div></div>`;
-    if (calId)   rows += `<div class="pd-row"><div class="pd-ico">📅</div><div class="pd-val pd-cal">${tcEsc(calId)}</div></div>`;
+    if (calId && this._config.show_calendar !== false)
+      rows += `<div class="pd-row"><div class="pd-ico">📅</div><div class="pd-val pd-cal">${tcEsc(calId)}</div></div>`;
 
     const overlay = document.createElement('div');
     overlay.className = 'tc-popup-overlay';
@@ -955,7 +1174,7 @@ ha-card{overflow:hidden;border-radius:var(--ha-card-border-radius,16px)}
     }).join('');
 
     const nowMin = this._toMin(now);
-    const showNow = isCurrentWeek && nowMin >= minT && nowMin <= maxT;
+    const showNow = this._config.show_now_line !== false && isCurrentWeek && nowMin >= minT && nowMin <= maxT;
     const nowTop  = (nowMin - minT) * ppm + PADDING_TOP;
 
     const dCols = days.map((day, di) => {
@@ -1038,7 +1257,7 @@ ha-card{overflow:hidden;border-radius:var(--ha-card-border-radius,16px)}
       this._weekOffset = 0; this._lastFetchKey = null; this._fetchEvents(); this._render();
     });
     s.getElementById('ref-btn')?.addEventListener('click', () => {
-      this._lastFetchKey = null; this._fetchEvents();
+      this._lastFetchKey = null; this._fetchEvents(true);
     });
   }
 
