@@ -503,8 +503,9 @@ class TimetableCard extends HTMLElement {
     this._weekOffset   = 0;
     this._clockTimer   = null;
     this._refreshTimer = null;
-    this._lastTickSig  = null;
     this._lastFetchKey = null;
+    this._lastTickSig  = null;
+    this._midnightTimer = null;
     this._popup        = null;
   }
 
@@ -545,6 +546,7 @@ class TimetableCard extends HTMLElement {
         if (this._config.show_now_line !== false) {
           this._clockTimer = setInterval(() => this._tick(), 30_000);
         }
+        this._scheduleMidnightRefresh();
         this._render();
       });
     }
@@ -579,9 +581,28 @@ class TimetableCard extends HTMLElement {
     this._render();
   }
 
+  // Day rollover must update the card (today's highlight, and the whole week
+  // grid if it was Sunday→Monday) even when show_now_line is off and no 30s
+  // tick is running at all. Rather than a recurring interval, this schedules a
+  // single setTimeout for the next local midnight — fires once a day, then
+  // reschedules itself, so it costs essentially nothing while idle.
+  _scheduleMidnightRefresh() {
+    clearTimeout(this._midnightTimer);
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
+    this._midnightTimer = setTimeout(() => {
+      if (this.isConnected) {
+        this._lastFetchKey = null;
+        this._fetchEvents();
+      }
+      this._scheduleMidnightRefresh();
+    }, next - now);
+  }
+
   disconnectedCallback() {
     clearInterval(this._clockTimer);
     clearInterval(this._refreshTimer);
+    clearTimeout(this._midnightTimer);
     this._closePopup();
   }
 
